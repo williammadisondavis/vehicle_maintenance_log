@@ -1,4 +1,6 @@
+
 import 'package:flutter/material.dart';
+import 'maintenance_planner.dart';
 
 void main() {
   runApp(const MyApp());
@@ -7,115 +9,228 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'Vehicle Maintenance Log',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const MaintenancePage(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class MaintenancePage extends StatefulWidget {
+  const MaintenancePage({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<MaintenancePage> createState() => _MaintenancePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _MaintenancePageState extends State<MaintenancePage> {
+  final mileageController = TextEditingController(text: '100000');
+  final oilController = TextEditingController(text: '95400');
+  final tireController = TextEditingController(text: '94000');
+  final oilIntervalController = TextEditingController(text: '5000');
+  final tireIntervalController = TextEditingController(text: '6000');
 
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
+  List<MaintenanceResult> results = [];
+  String? errorMessage;
+  bool calculated = false;
+
+  @override
+  void dispose() {
+    mileageController.dispose();
+    oilController.dispose();
+    tireController.dispose();
+    oilIntervalController.dispose();
+    tireIntervalController.dispose();
+    super.dispose();
+  }
+
+  void calculate() {
+    final mileage = int.tryParse(mileageController.text.trim());
+    final oil = oilController.text.trim();
+    final tires = tireController.text.trim();
+
+    final oilMileage = int.tryParse(oil);
+    final tireMileage = int.tryParse(tires);
+    final oilInterval = int.tryParse(oilIntervalController.text.trim());
+    final tireInterval = int.tryParse(tireIntervalController.text.trim());
+
+    if (mileage == null ||
+        oilInterval == null ||
+        tireInterval == null ||
+        (oil.isNotEmpty && oilMileage == null) ||
+        (tires.isNotEmpty && tireMileage == null)) {
+      setState(() {
+        errorMessage = 'Please enter valid whole numbers.';
+        calculated = false;
+      });
+      return;
+    }
+
+    try {
+      final answer = calculateMaintenance(
+        currentMileage: mileage,
+        services: [
+          ServiceHistory(
+            name: 'Oil Change',
+            lastMileage: oilMileage,
+            interval: oilInterval,
+          ),
+          ServiceHistory(
+            name: 'Tire Rotation',
+            lastMileage: tireMileage,
+            interval: tireInterval,
+          ),
+        ],
+      );
+
+      setState(() {
+        results = answer;
+        errorMessage = null;
+        calculated = true;
+      });
+    } on ArgumentError catch (error) {
+      setState(() {
+        errorMessage = error.message.toString();
+        calculated = false;
+      });
+    }
+  }
+
+  Widget numberField(String label, TextEditingController controller) {
+    return TextField(
+      controller: controller,
+      keyboardType: TextInputType.number,
+      decoration: InputDecoration(
+        labelText: label,
+        border: const OutlineInputBorder(),
+      ),
+    );
+  }
+
+  Widget serviceCard(
+    String title,
+    TextEditingController lastMileage,
+    TextEditingController interval,
+  ) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 12),
+            numberField('Last service mileage', lastMileage),
+            const SizedBox(height: 12),
+            numberField('Service interval (miles)', interval),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget resultCard(MaintenanceResult result) {
+    final milesLeft = result.milesLeft;
+
+    String details;
+
+    if (milesLeft == null) {
+      details = 'Add a service record to calculate the next service.';
+    } else if (milesLeft < 0) {
+      details = '${milesLeft.abs()} miles overdue';
+    } else {
+      details = '$milesLeft miles remaining';
+    }
+
+    return Card(
+      child: ListTile(
+        title: Text(result.name),
+        subtitle: Text(
+          '${result.status}\n'
+          '$details\n'
+          '${result.lastMileage == null ? "No service history" : "Last service: ${result.lastMileage} miles"}\n'
+          '${result.nextMileage == null ? "Next service: unknown" : "Next service: ${result.nextMileage} miles"}',
+        ),
+        isThreeLine: true,
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: const Text('Vehicle Maintenance Log'),
+        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 600),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Maintenance Planner',
+                  style: Theme.of(context).textTheme.headlineSmall,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Enter your mileage to see what maintenance is due next.',
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Sample mileage is filled in for testing. Nothing is saved yet.',
+                ),
+                const SizedBox(height: 20),
+                numberField('Current vehicle mileage', mileageController),
+                const SizedBox(height: 16),
+                serviceCard(
+                  'Oil Change',
+                  oilController,
+                  oilIntervalController,
+                ),
+                const SizedBox(height: 12),
+                serviceCard(
+                  'Tire Rotation',
+                  tireController,
+                  tireIntervalController,
+                ),
+                const SizedBox(height: 20),
+                FilledButton(
+                  onPressed: calculate,
+                  child: const Text('Check Maintenance'),
+                ),
+                if (errorMessage != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    errorMessage!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ],
+                if (calculated) ...[
+                  const SizedBox(height: 24),
+                  Text(
+                    'Maintenance Results',
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                  const SizedBox(height: 8),
+                  for (final result in results) resultCard(result),
+                ],
+              ],
             ),
-          ],
+          ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
       ),
     );
   }

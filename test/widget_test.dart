@@ -1,30 +1,37 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:vehicle_maintenance_log/main.dart';
+import 'package:vehicle_maintenance_log/maintenance_planner.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  test('Oil change due soon', () {
+    final results = calculateMaintenance(
+      currentMileage: 100000,
+      services: [
+        ServiceHistory(
+          name: 'Oil Change',
+          lastMileage: 95400,
+          interval: 5000,
+        ),
+      ],
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    expect(results.first.milesLeft, 400);
+    expect(results.first.status, 'Due soon');
+  });
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+  test('Oil change overdue', () {
+    final results = calculateMaintenance(
+      currentMileage: 101000,
+      services: [
+        ServiceHistory(
+          name: 'Oil Change',
+          lastMileage: 95400,
+          interval: 5000,
+        ),
+      ],
+    );
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(results.first.milesLeft, -600);
+    expect(results.first.status, 'Overdue');
   });
 }
