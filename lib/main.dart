@@ -5,8 +5,11 @@ import 'home_screen.dart';
 import 'vehicles_screen.dart';
 import 'services_screen.dart';
 import 'saved_planner_screen.dart';
+import 'settings_screen.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await AppSettings.instance.load();
   runApp(const MyApp());
 }
 
@@ -15,16 +18,31 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Vehicle Maintenance Log',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
-        ),
-        useMaterial3: true,
-      ),
-      home: const AppNavigation(),
+    return AnimatedBuilder(
+      animation: AppSettings.instance,
+      builder: (context, child) {
+        return MaterialApp(
+          title: 'Vehicle Maintenance Log',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.blue,
+            ),
+            useMaterial3: true,
+          ),
+          darkTheme: ThemeData(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.blue,
+              brightness: Brightness.dark,
+            ),
+            useMaterial3: true,
+          ),
+          themeMode: AppSettings.instance.darkMode
+              ? ThemeMode.dark
+              : ThemeMode.light,
+          home: const AppNavigation(),
+        );
+      },
     );
   }
 }
@@ -39,6 +57,14 @@ class AppNavigation extends StatefulWidget {
 class _AppNavigationState extends State<AppNavigation> {
   int selectedIndex = 0;
 
+  final pages = const [
+    HomeScreen(),
+    VehiclesScreen(),
+    ServicesScreen(),
+    SavedPlannerScreen(),
+    SettingsScreen(),
+  ];
+
   final titles = const [
     'Home',
     'Vehicles',
@@ -46,23 +72,6 @@ class _AppNavigationState extends State<AppNavigation> {
     'Maintenance Planner',
     'Settings',
   ];
-
-  Widget currentPage() {
-    switch (selectedIndex) {
-      case 0:
-        return const HomeScreen();
-      case 1:
-        return const VehiclesScreen();
-      case 2:
-        return const ServicesScreen();
-      case 3:
-        return const SavedPlannerScreen();
-      case 4:
-        return const SettingsScreen();
-      default:
-        return const HomeScreen();
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +81,10 @@ class _AppNavigationState extends State<AppNavigation> {
         backgroundColor:
             Theme.of(context).colorScheme.primaryContainer,
       ),
-      body: currentPage(),
+      body: IndexedStack(
+        index: selectedIndex,
+        children: pages,
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
         onDestinationSelected: (index) {
@@ -103,17 +115,6 @@ class _AppNavigationState extends State<AppNavigation> {
           ),
         ],
       ),
-    );
-  }
-}
-
-class SettingsScreen extends StatelessWidget {
-  const SettingsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Text('Settings will be added next.'),
     );
   }
 }
