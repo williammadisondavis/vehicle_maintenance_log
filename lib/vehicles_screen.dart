@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'database_helper.dart';
 
 class Vehicle {
   final int id;
@@ -15,6 +16,16 @@ class Vehicle {
     required this.year,
     required this.mileage,
   });
+
+  factory Vehicle.fromMap(Map<String, Object?> map) {
+    return Vehicle(
+      id: map['id'] as int,
+      make: map['make'] as String,
+      model: map['model'] as String,
+      year: map['year'] as int,
+      mileage: map['mileage'] as int,
+    );
+  }
 }
 
 class VehiclesScreen extends StatefulWidget {
@@ -25,8 +36,46 @@ class VehiclesScreen extends StatefulWidget {
 }
 
 class _VehiclesScreenState extends State<VehiclesScreen> {
-  final List<Vehicle> vehicles = [];
-  int nextId = 1;
+  final DatabaseHelper db = DatabaseHelper.instance;
+
+  List<Vehicle> vehicles = [];
+  bool isLoading = true;
+  String? errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    loadVehicles();
+  }
+
+  Future<void> loadVehicles() async {
+    try {
+      final rows = await db.getVehicles();
+
+      if (!mounted) return;
+
+      setState(() {
+        vehicles = rows.map(Vehicle.fromMap).toList();
+        isLoading = false;
+        errorMessage = null;
+      });
+    } catch (error) {
+      if (!mounted) return;
+
+      setState(() {
+        isLoading = false;
+        errorMessage = 'Could not load vehicles: $error';
+      });
+    }
+  }
+
+  void showMessage(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
 
   Future<void> showVehicleForm({Vehicle? vehicle}) async {
     final makeController = TextEditingController(
@@ -49,126 +98,190 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
       await showDialog<void>(
         context: context,
         builder: (dialogContext) {
-          return AlertDialog(
-            title: Text(isEditing ? 'Edit Vehicle' : 'Add Vehicle'),
-            content: SizedBox(
-              width: 400,
-              child: SingleChildScrollView(
-                child: Form(
-                  key: formKey,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextFormField(
-                        controller: makeController,
-                        decoration: const InputDecoration(
-                          labelText: 'Make',
-                          hintText: 'Toyota',
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Enter a make';
-                          }
-                          return null;
-                        },
-                      ),
-                      TextFormField(
-                        controller: modelController,
-                        decoration: const InputDecoration(
-                          labelText: 'Model',
-                          hintText: 'Camry',
-                        ),
-                        validator: (value) {
-                          if (value == null || value.trim().isEmpty) {
-                            return 'Enter a model';
-                          }
-                          return null;
-                        },
-                      ),
-                      TextFormField(
-                        controller: yearController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Year',
-                          hintText: '2020',
-                        ),
-                        validator: (value) {
-                          final year = int.tryParse(value ?? '');
-                          final maximum = DateTime.now().year + 1;
+          bool saving = false;
 
-                          if (year == null ||
-                              year < 1886 ||
-                              year > maximum) {
-                            return 'Enter a valid year';
-                          }
-                          return null;
-                        },
+          return StatefulBuilder(
+            builder: (context, updateDialog) {
+              return AlertDialog(
+                title: Text(
+                  isEditing ? 'Edit Vehicle' : 'Add Vehicle',
+                ),
+                content: SizedBox(
+                  width: 400,
+                  child: SingleChildScrollView(
+                    child: Form(
+                      key: formKey,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          TextFormField(
+                            controller: makeController,
+                            decoration: const InputDecoration(
+                              labelText: 'Make',
+                              hintText: 'Toyota',
+                            ),
+                            validator: (value) {
+                              if (value == null ||
+                                  value.trim().isEmpty) {
+                                return 'Enter a make';
+                              }
+                              return null;
+                            },
+                          ),
+                          TextFormField(
+                            controller: modelController,
+                            decoration: const InputDecoration(
+                              labelText: 'Model',
+                              hintText: 'Camry',
+                            ),
+                            validator: (value) {
+                              if (value == null ||
+                                  value.trim().isEmpty) {
+                                return 'Enter a model';
+                              }
+                              return null;
+                            },
+                          ),
+                          TextFormField(
+                            controller: yearController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Year',
+                            ),
+                            validator: (value) {
+                              final year = int.tryParse(
+                                value?.trim() ?? '',
+                              );
+
+                              if (year == null ||
+                                  year < 1886 ||
+                                  year > DateTime.now().year + 1) {
+                                return 'Enter a valid year';
+                              }
+                              return null;
+                            },
+                          ),
+                          TextFormField(
+                            controller: mileageController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Current Mileage',
+                            ),
+                            validator: (value) {
+                              final mileage = int.tryParse(
+                                value?.trim() ?? '',
+                              );
+
+                              if (mileage == null || mileage < 0) {
+                                return 'Enter valid mileage';
+                              }
+
+                              return null;
+                            },
+                          ),
+                        ],
                       ),
-                      TextFormField(
-                        controller: mileageController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: 'Current Mileage',
-                          hintText: '50000',
-                        ),
-                        validator: (value) {
-                          final mileage = int.tryParse(value ?? '');
-                          if (mileage == null || mileage < 0) {
-                            return 'Enter valid mileage';
-                          }
-                          return null;
-                        },
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  if (!formKey.currentState!.validate()) return;
+                actions: [
+                  TextButton(
+                    onPressed: saving
+                        ? null
+                        : () => Navigator.pop(dialogContext),
+                    child: const Text('Cancel'),
+                  ),
+                  FilledButton(
+                    onPressed: saving
+                        ? null
+                        : () async {
+                            if (!formKey.currentState!.validate()) {
+                              return;
+                            }
 
-                  final updatedVehicle = Vehicle(
-                    id: vehicle?.id ?? nextId++,
-                    make: makeController.text.trim(),
-                    model: modelController.text.trim(),
-                    year: int.parse(yearController.text.trim()),
-                    mileage: int.parse(
-                      mileageController.text.trim(),
+                            updateDialog(() {
+                              saving = true;
+                            });
+
+                            try {
+                              final make =
+                                  makeController.text.trim();
+                              final model =
+                                  modelController.text.trim();
+                              final year = int.parse(
+                                yearController.text.trim(),
+                              );
+                              final mileage = int.parse(
+                                mileageController.text.trim(),
+                              );
+
+                              if (isEditing) {
+                                final changed = await db.updateVehicle(
+                                  id: vehicle.id,
+                                  make: make,
+                                  model: model,
+                                  year: year,
+                                  mileage: mileage,
+                                );
+
+                                if (changed == 0) {
+                                  throw StateError(
+                                    'Vehicle was not found',
+                                  );
+                                }
+                              } else {
+                                await db.addVehicle(
+                                  make: make,
+                                  model: model,
+                                  year: year,
+                                  mileage: mileage,
+                                );
+                              }
+
+                              if (!mounted) return;
+
+                              if (dialogContext.mounted) {
+                                Navigator.pop(dialogContext);
+                              }
+
+                              await loadVehicles();
+
+                              showMessage(
+                                isEditing
+                                    ? 'Vehicle updated'
+                                    : 'Vehicle added',
+                              );
+                            } catch (error) {
+                              showMessage(
+                                'Could not save vehicle: $error',
+                              );
+
+                              if (dialogContext.mounted) {
+                                updateDialog(() {
+                                  saving = false;
+                                });
+                              }
+                            }
+                          },
+                    child: Text(
+                      saving
+                          ? 'Saving...'
+                          : isEditing
+                              ? 'Save'
+                              : 'Add',
                     ),
-                  );
-
-                  setState(() {
-                    if (isEditing) {
-                      final index = vehicles.indexWhere(
-                        (item) => item.id == vehicle.id,
-                      );
-                      if (index != -1) {
-                        vehicles[index] = updatedVehicle;
-                      }
-                    } else {
-                      vehicles.add(updatedVehicle);
-                    }
-                  });
-
-                  Navigator.pop(dialogContext);
-                },
-                child: Text(isEditing ? 'Save' : 'Add'),
-              ),
-            ],
+                  ),
+                ],
+              );
+            },
           );
         },
       );
     } finally {
-      // Wait until the dialog's exit animation finishes.
       await Future<void>.delayed(
         const Duration(milliseconds: 300),
       );
+
       makeController.dispose();
       modelController.dispose();
       yearController.dispose();
@@ -188,11 +301,15 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(dialogContext, false),
+              onPressed: () {
+                Navigator.pop(dialogContext, false);
+              },
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () => Navigator.pop(dialogContext, true),
+              onPressed: () {
+                Navigator.pop(dialogContext, true);
+              },
               child: const Text('Delete'),
             ),
           ],
@@ -200,94 +317,129 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
       },
     );
 
-    if (confirmed == true && mounted) {
-      setState(() {
-        vehicles.removeWhere((item) => item.id == vehicle.id);
-      });
+    if (confirmed != true || !mounted) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vehicle deleted')),
-      );
+    try {
+      await db.deleteVehicle(vehicle.id);
+      await loadVehicles();
+      showMessage('Vehicle deleted');
+    } catch (error) {
+      showMessage('Could not delete vehicle: $error');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: vehicles.isEmpty
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.directions_car,
-                    size: 70,
-                    color: Colors.grey,
-                  ),
-                  const SizedBox(height: 12),
-                  const Text('No vehicles added yet'),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Tap the button below to add your first vehicle.',
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 20),
-                  FilledButton.icon(
-                    onPressed: () => showVehicleForm(),
-                    icon: const Icon(Icons.add),
-                    label: const Text('Add Vehicle'),
-                  ),
-                ],
-              ),
+      body: isLoading
+          ? const Center(
+              child: CircularProgressIndicator(),
             )
-          : ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: vehicles.length,
-              itemBuilder: (context, index) {
-                final vehicle = vehicles[index];
-
-                return Card(
-                  child: ListTile(
-                    leading: const CircleAvatar(
-                      child: Icon(Icons.directions_car),
-                    ),
-                    title: Text(
-                      '${vehicle.year} ${vehicle.make} ${vehicle.model}',
-                    ),
-                    subtitle: Text(
-                      '${vehicle.mileage} miles',
-                    ),
-                    trailing: PopupMenuButton<String>(
-                      tooltip: 'Vehicle options',
-                      onSelected: (action) {
-                        if (action == 'edit') {
-                          showVehicleForm(vehicle: vehicle);
-                        } else if (action == 'delete') {
-                          deleteVehicle(vehicle);
-                        }
-                      },
-                      itemBuilder: (context) => const [
-                        PopupMenuItem(
-                          value: 'edit',
-                          child: Text('Edit'),
+          : errorMessage != null
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          errorMessage!,
+                          textAlign: TextAlign.center,
                         ),
-                        PopupMenuItem(
-                          value: 'delete',
-                          child: Text('Delete'),
+                        const SizedBox(height: 12),
+                        FilledButton(
+                          onPressed: () {
+                            setState(() {
+                              isLoading = true;
+                            });
+                            loadVehicles();
+                          },
+                          child: const Text('Retry'),
                         ),
                       ],
                     ),
                   ),
-                );
-              },
-            ),
-      floatingActionButton: vehicles.isNotEmpty
-          ? FloatingActionButton(
-              onPressed: () => showVehicleForm(),
-              tooltip: 'Add vehicle',
-              child: const Icon(Icons.add),
-            )
-          : null,
+                )
+              : vehicles.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment:
+                            MainAxisAlignment.center,
+                        children: [
+                          const Icon(
+                            Icons.directions_car,
+                            size: 70,
+                            color: Colors.grey,
+                          ),
+                          const SizedBox(height: 12),
+                          const Text('No vehicles added yet'),
+                          const SizedBox(height: 20),
+                          FilledButton.icon(
+                            onPressed: showVehicleForm,
+                            icon: const Icon(Icons.add),
+                            label: const Text('Add Vehicle'),
+                          ),
+                        ],
+                      ),
+                    )
+                  : RefreshIndicator(
+                      onRefresh: loadVehicles,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(12),
+                        itemCount: vehicles.length,
+                        itemBuilder: (context, index) {
+                          final vehicle = vehicles[index];
+
+                          return Card(
+                            child: ListTile(
+                              leading: const CircleAvatar(
+                                child: Icon(
+                                  Icons.directions_car,
+                                ),
+                              ),
+                              title: Text(
+                                '${vehicle.year} '
+                                '${vehicle.make} '
+                                '${vehicle.model}',
+                              ),
+                              subtitle: Text(
+                                '${vehicle.mileage} miles',
+                              ),
+                              trailing: PopupMenuButton<String>(
+                                tooltip: 'Vehicle options',
+                                onSelected: (action) {
+                                  if (action == 'edit') {
+                                    showVehicleForm(
+                                      vehicle: vehicle,
+                                    );
+                                  } else if (action == 'delete') {
+                                    deleteVehicle(vehicle);
+                                  }
+                                },
+                                itemBuilder: (context) => const [
+                                  PopupMenuItem(
+                                    value: 'edit',
+                                    child: Text('Edit'),
+                                  ),
+                                  PopupMenuItem(
+                                    value: 'delete',
+                                    child: Text('Delete'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+      floatingActionButton:
+          !isLoading && errorMessage == null && vehicles.isNotEmpty
+              ? FloatingActionButton(
+                  onPressed: showVehicleForm,
+                  tooltip: 'Add vehicle',
+                  child: const Icon(Icons.add),
+                )
+              : null,
     );
   }
 }
