@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'maintenance_planner.dart';
 import 'vehicles_screen.dart';
+import 'services_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -16,9 +17,7 @@ class MyApp extends StatelessWidget {
       title: 'Vehicle Maintenance Log',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
-        ),
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
       home: const AppNavigation(),
@@ -115,17 +114,6 @@ class HomeScreen extends StatelessWidget {
   }
 }
 
-class ServicesScreen extends StatelessWidget {
-  const ServicesScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Text('Service history will be added next.'),
-    );
-  }
-}
-
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
@@ -178,10 +166,12 @@ class _MaintenancePageState extends State<MaintenancePage> {
 
     final oilMileage = int.tryParse(oil);
     final tireMileage = int.tryParse(tires);
-    final oilInterval =
-        int.tryParse(oilIntervalController.text.trim());
-    final tireInterval =
-        int.tryParse(tireIntervalController.text.trim());
+    final oilInterval = int.tryParse(
+      oilIntervalController.text.trim(),
+    );
+    final tireInterval = int.tryParse(
+      tireIntervalController.text.trim(),
+    );
 
     if (mileage == null ||
         oilInterval == null ||
@@ -348,7 +338,8 @@ class _MaintenancePageState extends State<MaintenancePage> {
                 Text(
                   errorMessage!,
                   style: TextStyle(
-                    color: Theme.of(context).colorScheme.error,
+                    color:
+                        Theme.of(context).colorScheme.error,
                   ),
                 ),
               ],
