@@ -1,6 +1,8 @@
 
 import 'package:flutter/material.dart';
+
 import 'database_helper.dart';
+import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -11,16 +13,29 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   final db = DatabaseHelper.instance;
+  final settings = AppSettings.instance;
 
   List<Map<String, Object?>> vehicles = [];
   List<Map<String, Object?>> services = [];
+
   bool loading = true;
   String? error;
 
   @override
   void initState() {
     super.initState();
+    settings.addListener(refresh);
     loadDashboard();
+  }
+
+  @override
+  void dispose() {
+    settings.removeListener(refresh);
+    super.dispose();
+  }
+
+  void refresh() {
+    if (mounted) setState(() {});
   }
 
   Future<void> loadDashboard() async {
@@ -33,15 +48,15 @@ class _HomeScreenState extends State<HomeScreen> {
       setState(() {
         vehicles = savedVehicles;
         services = savedServices;
-        error = null;
         loading = false;
+        error = null;
       });
     } catch (e) {
       if (!mounted) return;
 
       setState(() {
-        error = 'Could not load dashboard: $e';
         loading = false;
+        error = 'Could not load dashboard: $e';
       });
     }
   }
@@ -62,10 +77,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
+                  Text(title),
                   Text(
                     value,
                     style: Theme.of(context).textTheme.headlineSmall,
@@ -82,24 +94,19 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     if (loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const Center(
+        child: CircularProgressIndicator(),
+      );
     }
 
     if (error != null) {
       return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(error!, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(
-              onPressed: () {
-                setState(() => loading = true);
-                loadDashboard();
-              },
-              child: const Text('Retry'),
-            ),
-          ],
+        child: FilledButton(
+          onPressed: () {
+            setState(() => loading = true);
+            loadDashboard();
+          },
+          child: const Text('Retry Loading Dashboard'),
         ),
       );
     }
@@ -121,8 +128,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 8),
           const Text(
-            'Keep track of your vehicles, service history, '
-            'and maintenance expenses.',
+            'Your vehicles and maintenance at a glance.',
           ),
           const SizedBox(height: 20),
           summaryCard(
@@ -135,23 +141,23 @@ class _HomeScreenState extends State<HomeScreen> {
             services.length.toString(),
             Icons.build,
           ),
-          summaryCard(
-            'Total Maintenance Cost',
-            '\$${totalCost.toStringAsFixed(2)}',
-            Icons.attach_money,
-          ),
+          if (settings.showCosts)
+            summaryCard(
+              'Total Maintenance Cost',
+              '\$${totalCost.toStringAsFixed(2)}',
+              Icons.attach_money,
+            ),
           const SizedBox(height: 20),
           Text(
             'Your Vehicles',
             style: Theme.of(context).textTheme.titleLarge,
           ),
-          const SizedBox(height: 8),
           if (vehicles.isEmpty)
             const Card(
               child: Padding(
-                padding: EdgeInsets.all(20),
+                padding: EdgeInsets.all(16),
                 child: Text(
-                  'No vehicles yet. Open the Vehicles tab to add one.',
+                  'No vehicles yet. Add one in the Vehicles tab.',
                 ),
               ),
             ),
@@ -174,33 +180,32 @@ class _HomeScreenState extends State<HomeScreen> {
             'Recent Services',
             style: Theme.of(context).textTheme.titleLarge,
           ),
-          const SizedBox(height: 8),
           if (services.isEmpty)
             const Card(
               child: Padding(
-                padding: EdgeInsets.all(20),
-                child: Text('No maintenance records added yet.'),
+                padding: EdgeInsets.all(16),
+                child: Text('No service records yet.'),
               ),
             ),
           for (final service in services.take(5))
             Card(
               child: ListTile(
                 leading: const Icon(Icons.build_circle_outlined),
-                title: Text(
-                  service['service_type'] as String,
-                ),
+                title: Text(service['service_type'] as String),
                 subtitle: Text(
                   '${service['make']} ${service['model']}'
                   ' - ${service['service_date']}',
                 ),
-                trailing: Text(
-                  '\$${(service['cost'] as num).toStringAsFixed(2)}',
-                ),
+                trailing: settings.showCosts
+                    ? Text(
+                        '\$${(service['cost'] as num).toStringAsFixed(2)}',
+                      )
+                    : null,
               ),
             ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           const Text(
-            'Pull down to refresh the dashboard.',
+            'Pull down to refresh after adding or editing records.',
             textAlign: TextAlign.center,
           ),
         ],
