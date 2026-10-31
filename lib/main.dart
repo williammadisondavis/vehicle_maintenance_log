@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'maintenance_planner.dart';
+import 'vehicles_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -15,7 +16,9 @@ class MyApp extends StatelessWidget {
       title: 'Vehicle Maintenance Log',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue,
+        ),
         useMaterial3: true,
       ),
       home: const AppNavigation(),
@@ -54,13 +57,19 @@ class _AppNavigationState extends State<AppNavigation> {
     return Scaffold(
       appBar: AppBar(
         title: Text(titles[selectedIndex]),
-        backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+        backgroundColor:
+            Theme.of(context).colorScheme.primaryContainer,
       ),
-      body: IndexedStack(index: selectedIndex, children: pages),
+      body: IndexedStack(
+        index: selectedIndex,
+        children: pages,
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: selectedIndex,
         onDestinationSelected: (index) {
-          setState(() => selectedIndex = index);
+          setState(() {
+            selectedIndex = index;
+          });
         },
         destinations: const [
           NavigationDestination(
@@ -99,20 +108,9 @@ class HomeScreen extends StatelessWidget {
         leading: Icon(Icons.directions_car),
         title: Text('Vehicle Maintenance Log'),
         subtitle: Text(
-          'Keep track of your cars and upcoming maintenance.',
+          'Track your vehicles and upcoming maintenance.',
         ),
       ),
-    );
-  }
-}
-
-class VehiclesScreen extends StatelessWidget {
-  const VehiclesScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const Center(
-      child: Text('Vehicle management will be added next.'),
     );
   }
 }
@@ -123,7 +121,7 @@ class ServicesScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return const Center(
-      child: Text('Service history will be added here.'),
+      child: Text('Service history will be added next.'),
     );
   }
 }
@@ -180,12 +178,10 @@ class _MaintenancePageState extends State<MaintenancePage> {
 
     final oilMileage = int.tryParse(oil);
     final tireMileage = int.tryParse(tires);
-    final oilInterval = int.tryParse(
-      oilIntervalController.text.trim(),
-    );
-    final tireInterval = int.tryParse(
-      tireIntervalController.text.trim(),
-    );
+    final oilInterval =
+        int.tryParse(oilIntervalController.text.trim());
+    final tireInterval =
+        int.tryParse(tireIntervalController.text.trim());
 
     if (mileage == null ||
         oilInterval == null ||
@@ -280,8 +276,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
     String details;
 
     if (milesLeft == null) {
-      details =
-          'Add a service record to calculate the next service.';
+      details = 'Add service history to calculate.';
     } else if (milesLeft < 0) {
       details = '${milesLeft.abs()} miles overdue';
     } else {
@@ -353,8 +348,7 @@ class _MaintenancePageState extends State<MaintenancePage> {
                 Text(
                   errorMessage!,
                   style: TextStyle(
-                    color:
-                        Theme.of(context).colorScheme.error,
+                    color: Theme.of(context).colorScheme.error,
                   ),
                 ),
               ],
