@@ -1,0 +1,8 @@
+Vehicle Maintenance Log — screenshots from testing, October 31, 2026.
+These images are unchanged copies of the screenshots provided.
+T4 shows delete confirmation (not the Cancel result).
+T10 and T11 are post-action screenshots; the restart/deletion actions are not visible in the images.
+T13 screenshot shows 54,000 miles, not the exact 54,500-mile boundary case.
+T16 screenshot shows 1,000 miles remaining; the fixed-vs-adjustable comparison is not visible.
+T17-T20 correspond to dark mode, hidden costs, helper override, and landscape.
+User reported all 20 tests passed; these notes describe only visible screenshot evidence.
